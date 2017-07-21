@@ -10,9 +10,10 @@ from bs4 import BeautifulSoup
 
 # For Philadelphia neighborhoods only; change root_url to expand area
 root_url = 'https://philadelphia.eat24hours.com'
+scrapeList = []
 
 # Retrieve the links to the neighborhoods in Philadelphia
-def getLinks():
+def getLinks(driver):
     source = driver.page_source
     html = BeautifulSoup(source, 'html.parser')
     neighborhoodList = html.select('.column_list')[2]
@@ -53,7 +54,6 @@ def getRegion(div):
 # Get the delivery minimum and delivery fee for that vendor
 def getDeliveryFee(vendor):
     info = vendor.contents[11].getText().split()
-    print info
     deliveryMin = info[2]
     deliveryFee = info[5]
 
@@ -75,7 +75,7 @@ def getReviewCount(vendor):
     reviews = [vendor.contents[5].getText().strip().split()[0]]
     return reviews
 
-def getVendorInfo():
+def output2csv(driver, wr):
     source = driver.page_source
     html = BeautifulSoup(source, 'html.parser')
     div = html.select('#contents_list')
@@ -88,33 +88,30 @@ def getVendorInfo():
             rating = getRating(vendor)
             reviews = getReviewCount(vendor)
 
+            data = []
             data = name + region + fees + rating + reviews
-            return data
+            wr.writerow(data[0:7])
 
-def output2csv(dataList):
-    fields = [ 'Name', 'City', 'Neighborhood', 'Delivery Min', 'Delivery Fee', 'Rating', 'Reviews' ]
+def main():
+    dir = os.path.dirname('C:\Users\addu\scrape')
+    chrome_driver_path = dir + "\chromedriver.exe"
+
+    # driver = webdriver.Chrome()
+    driver = webdriver.PhantomJS(executable_path=r'C:\Users\addu\node_modules\phantomjs-prebuilt\lib\phantom\bin\phantomjs')
+    driver.implicitly_wait(30)
+    driver.get(root_url)
+
+    links = getLinks(driver)
     with open('eat24_scrape.csv', 'wb') as csvfile:
+        fields = [ 'Name', 'City', 'Neighborhood', 'Delivery Min', 'Delivery Fee', 'Rating', 'Reviews' ]
         wr = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_ALL)
         wr.writerow(fields)
-        for data in dataList:
-            print data
-
-            wr.writerow([data[0], data[1], data[2], data[5], data[8], data[len(data)-1]])
+        for link in links:
+            if link != 'https://philadelphia.eat24hours.com/girard -state':
+                navigate(link, driver)
+                scrollDown(driver)
+                output2csv(driver, wr)
 
 ###############################
 
-dir = os.path.dirname('C:\Users\addu\scrape')
-chrome_driver_path = dir + "\chromedriver.exe"
-
-# driver = webdriver.Chrome()
-driver = webdriver.PhantomJS(executable_path=r'C:\Users\addu\node_modules\phantomjs-prebuilt\lib\phantom\bin\phantomjs')
-driver.implicitly_wait(30)
-driver.get(root_url)
-
-links = getLinks()
-for link in links:
-    if link != 'https://philadelphia.eat24hours.com/girard -state':
-        navigate(link, driver)
-        scrollDown(driver)
-        getVendorInfo()
-        #output2csv()
+main()
