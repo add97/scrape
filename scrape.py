@@ -59,7 +59,7 @@ def getDeliveryFee(vendor):
 
     if '$' not in deliveryMin:
         deliveryMin = ''
-    if info[3] == 'Free':
+    if '$' not in deliveryFee:
         deliveryFee = ''
 
     info = [deliveryMin, deliveryFee]
