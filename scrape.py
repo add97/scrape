@@ -69,8 +69,15 @@ def getRegion(div):
     region = [city, neighborhood]
     return region
 
+# Click the 'View Menu' button to switch pages for address & phone number
+def gotoVendorPage(driver):
+    driver.find_element_by_link_text('View Menu').click()
+    driver.find_element_by_link_text('Info & Yelp').click()
+
 # Get the address of the vendor
-# def getAddress(vendor):
+def getAddressPhone():
+    source = driver.page_source
+    html = BeautifulSoup(source, 'html.parser')
 
 
 # Get the delivery minimum and delivery fee for that vendor
@@ -108,13 +115,14 @@ def output2csv(driver, wr):
             name = getVendorName(vendor)
             latlng = getLatLng(driver)
             region = getRegion(div)
-            # address = getAddress()
             fees = getDeliveryFee(vendor)
             rating = getRating(vendor)
             reviews = getReviewCount(vendor)
+            gotoVendorPage(driver)
+            address = getAddress()
 
             data = []
-            data = vendorId + name + latlng + region + fees + rating + reviews
+            data = vendorId + name + latlng + region + address + fees + rating + reviews
             print data
             #wr.writerow(data[0:7])
 
@@ -122,8 +130,8 @@ def main():
     dir = os.path.dirname('C:\Users\addu\scrape')
     chrome_driver_path = dir + "\chromedriver.exe"
 
-    # driver = webdriver.Chrome()
-    driver = webdriver.PhantomJS(executable_path=r'C:\Users\addu\node_modules\phantomjs-prebuilt\lib\phantom\bin\phantomjs')
+    driver = webdriver.Chrome()
+    #driver = webdriver.PhantomJS(executable_path=r'C:\Users\addu\node_modules\phantomjs-prebuilt\lib\phantom\bin\phantomjs')
     driver.implicitly_wait(30)
     driver.get(root_url)
 
