@@ -10,7 +10,6 @@ from bs4 import BeautifulSoup
 
 # For Philadelphia neighborhoods only; change root_url to expand area
 root_url = 'https://philadelphia.eat24hours.com'
-scrapeList = []
 
 # Retrieve the links to the neighborhoods in Philadelphia
 def getLinks(driver):
@@ -38,6 +37,25 @@ def scrollDown(driver):
             break
         lastHeight = newHeight
 
+# Get the id of the vendor
+def getVendorID(driver):
+    source = driver.page_source
+    html = BeautifulSoup(source, 'html.parser')
+    div = html.select('.rest')[0]
+    vendorId = [div.get('id')]
+    return vendorId
+
+# Get the latitude and longitude or the vendor
+def getLatLng(driver):
+    source = driver.page_source
+    html = BeautifulSoup(source, 'html.parser')
+    div = html.select('.rest')[0]
+    latlng = div.get('latlng').split(':')[1].strip('()').split(',')
+    lat = latlng[0]
+    lng = latlng[1]
+    latlng = [lat, lng]
+    return latlng
+
 # Get the name of the vendor
 def getVendorName(vendor):
     name = [vendor.select('.rest_menu')[0].getText().strip()]
@@ -51,9 +69,13 @@ def getRegion(div):
     region = [city, neighborhood]
     return region
 
+# Get the address of the vendor
+# def getAddress(vendor):
+
+
 # Get the delivery minimum and delivery fee for that vendor
 def getDeliveryFee(vendor):
-    info = vendor.contents[11].getText().split()
+    info = vendor.select('.content_list_rest_info')[0].getText().split()
     deliveryMin = info[2]
     deliveryFee = info[5]
 
@@ -72,7 +94,7 @@ def getRating(vendor):
 
 # Get the number of reviews for a vendor
 def getReviewCount(vendor):
-    reviews = [vendor.contents[5].getText().strip().split()[0]]
+    reviews = [vendor.select('.rating_count')[0].getText().split()[0]]
     return reviews
 
 def output2csv(driver, wr):
@@ -80,17 +102,21 @@ def output2csv(driver, wr):
     html = BeautifulSoup(source, 'html.parser')
     div = html.select('#contents_list')
 
-    for vendor in div[0].select('div.content_list_restaurant_left'):
+    for vendor in div[0].select('.content_list_restaurant'):
         if getVendorName(vendor) != ['']:
+            vendorId = getVendorID(driver)
             name = getVendorName(vendor)
+            latlng = getLatLng(driver)
             region = getRegion(div)
+            # address = getAddress()
             fees = getDeliveryFee(vendor)
             rating = getRating(vendor)
             reviews = getReviewCount(vendor)
 
             data = []
-            data = name + region + fees + rating + reviews
-            wr.writerow(data[0:7])
+            data = vendorId + name + latlng + region + fees + rating + reviews
+            print data
+            #wr.writerow(data[0:7])
 
 def main():
     dir = os.path.dirname('C:\Users\addu\scrape')
