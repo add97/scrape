@@ -64,9 +64,8 @@ def getVendorName(vendor):
 # Get the city and neighborhood of the vendors
 def getRegion(div):
     region = div[0].select('span#content_list_results_add')[0].getText().split()
-    city = region[0].rstrip(',')
     neighborhood = region[1].rstrip(',')
-    region = [city, neighborhood]
+    region = [neighborhood]
     return region
 
 # Click the 'View Menu' button to switch pages for address & phone number
@@ -75,10 +74,13 @@ def gotoVendorPage(driver):
     driver.find_element_by_link_text('Info & Yelp').click()
 
 # Get the address of the vendor
-def getAddressPhone():
+def getAddressPhone(driver):
     source = driver.page_source
     html = BeautifulSoup(source, 'html.parser')
-
+    address = [html.select('.rest_data')[0].findAll('a', href=True)[0]['href'].split('=')[1]]
+    areaCode = html.select('.rest_data')[0].findAll('span')[0].getText().split()[0]
+    phoneNum = [areaCode + html.select('.rest_data')[0].findAll('span')[0].getText().split()[1]]
+    return phoneNum + address
 
 # Get the delivery minimum and delivery fee for that vendor
 def getDeliveryFee(vendor):
@@ -119,12 +121,13 @@ def output2csv(driver, wr):
             rating = getRating(vendor)
             reviews = getReviewCount(vendor)
             gotoVendorPage(driver)
-            address = getAddress()
+            addressPhone = getAddressPhone(driver)
 
             data = []
-            data = vendorId + name + latlng + region + address + fees + rating + reviews
+            data = vendorId + name + addressPhone + region + latlng + fees + rating + reviews
             print data
-            #wr.writerow(data[0:7])
+            wr.writerow(data[0:12])
+            driver.execute_script("window.history.go(-1)")
 
 def main():
     dir = os.path.dirname('C:\Users\addu\scrape')
@@ -137,7 +140,7 @@ def main():
 
     links = getLinks(driver)
     with open('eat24_scrape.csv', 'wb') as csvfile:
-        fields = [ 'Name', 'City', 'Neighborhood', 'Delivery Min', 'Delivery Fee', 'Rating', 'Reviews' ]
+        fields = [ 'ID', 'Name', 'Phone Number', 'Address', 'Neighborhood', 'Latitude', 'Longitude', 'Delivery Min', 'Delivery Fee', 'Rating', 'Reviews' ]
         wr = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_ALL)
         wr.writerow(fields)
         for link in links:
