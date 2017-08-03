@@ -3,6 +3,9 @@ reload(sys)
 sys.setdefaultencoding('utf-8')
 import os
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import csv
 import requests
 import time
@@ -37,50 +40,13 @@ def scrollDown(driver):
             break
         lastHeight = newHeight
 
-# Get the id of the vendor
-def getVendorID(driver):
-    source = driver.page_source
-    html = BeautifulSoup(source, 'html.parser')
-    div = html.select('.rest')[0]
-    vendorId = [div.get('id')]
-    return vendorId
-
-# Get the latitude and longitude or the vendor
-def getLatLng(driver):
-    source = driver.page_source
-    html = BeautifulSoup(source, 'html.parser')
-    div = html.select('.rest')[0]
-    latlng = div.get('latlng').split(':')[1].strip('()').split(',')
-    lat = latlng[0]
-    lng = latlng[1]
-    latlng = [lat, lng]
-    return latlng
-
-# Get the name of the vendor
-def getVendorName(vendor):
-    name = [vendor.select('.rest_menu')[0].getText().strip()]
-    return name
-
-# Get the city and neighborhood of the vendors
-def getRegion(div):
-    region = div[0].select('span#content_list_results_add')[0].getText().split()
-    neighborhood = region[1].rstrip(',')
-    region = [neighborhood]
-    return region
-
-# Click the 'View Menu' button to switch pages for address & phone number
-def gotoVendorPage(driver):
-    driver.find_element_by_link_text('View Menu').click()
-    driver.find_element_by_link_text('Info & Yelp').click()
-
 # Get the address of the vendor
 def getAddressPhone(driver):
     source = driver.page_source
     html = BeautifulSoup(source, 'html.parser')
-    address = [html.select('.rest_data')[0].findAll('a', href=True)[0]['href'].split('=')[1]]
-    areaCode = html.select('.rest_data')[0].findAll('span')[0].getText().split()[0]
-    phoneNum = [areaCode + html.select('.rest_data')[0].findAll('span')[0].getText().split()[1]]
-    return phoneNum + address
+    address = html.find('span', {'itemprop': 'streetAddress'}).contents[0]
+    phoneNum = html.find('span', {'itemprop': 'telephone'}).contents[0]
+    return [address, phoneNum]
 
 # Get the delivery minimum and delivery fee for that vendor
 def getDeliveryFee(vendor):
@@ -96,51 +62,40 @@ def getDeliveryFee(vendor):
     info = [deliveryMin, deliveryFee]
     return info
 
-# Get the rating (a multiple of 10)
-def getRating(vendor):
-    rating = [vendor.select('.rating_stars')[0].findAll()[0]['class'][3].split('-')[1]]
-    return rating
-
-# Get the number of reviews for a vendor
-def getReviewCount(vendor):
-    reviews = [vendor.select('.rating_count')[0].getText().split()[0]]
-    return reviews
-
 def output2csv(driver, wr):
     source = driver.page_source
     html = BeautifulSoup(source, 'html.parser')
-    div = html.select('#contents_list')
-
-    for vendor in div[0].select('.content_list_restaurant'):
-        if getVendorName(vendor) != ['']:
-            vendorId = getVendorID(driver)
-            name = getVendorName(vendor)
-            latlng = getLatLng(driver)
-            region = getRegion(div)
+    vendors = html.find_all('div', class_= 'content_list_restaurant')
+    for vendor in vendors:
+        if vendor.find('a', class_= 'rest_menu').get('title'):
+            vendorId = vendor['id'].split('_')[1]
+            name = vendor.find('a', class_= 'rest_menu').get('title')
+            latlng = vendor.get('latlng').split(':')[1].strip('()').split(',')
+            city = html.find('span', {'id': 'content_list_results_add'}).contents[0].split(',')[0]
             fees = getDeliveryFee(vendor)
-            rating = getRating(vendor)
-            reviews = getReviewCount(vendor)
-            gotoVendorPage(driver)
+            rating = vendor.find('div', class_='crating').get('class')[3].split('-')[1]
+            if vendor.find('span', class_='rating_count').contents:
+                reviews = vendor.find('span', class_='rating_count').contents[0].split()[0]
+            else:
+                reviews = '0'
+            navigate(vendor.find('a', class_= 'rest_menu').get('href'), driver)
             addressPhone = getAddressPhone(driver)
+            address = addressPhone[0]
+            phone = addressPhone[1]
 
-            data = []
-            data = vendorId + name + addressPhone + region + latlng + fees + rating + reviews
+            data = [vendorId, name, phone, address, city, latlng[0], latlng[1], fees[0], fees[1], rating, reviews]
+            wr.writerow(data)
             print data
-            wr.writerow(data[0:12])
             driver.execute_script("window.history.go(-1)")
 
 def main():
-    dir = os.path.dirname('C:\Users\addu\scrape')
-    chrome_driver_path = dir + "\chromedriver.exe"
-
-    driver = webdriver.Chrome()
-    #driver = webdriver.PhantomJS(executable_path=r'C:\Users\addu\node_modules\phantomjs-prebuilt\lib\phantom\bin\phantomjs')
-    driver.implicitly_wait(30)
+    driver = webdriver.PhantomJS(executable_path=r'C:\Users\addu\node_modules\phantomjs-prebuilt\lib\phantom\bin\phantomjs')
+    driver.implicitly_wait(15)
     driver.get(root_url)
 
     links = getLinks(driver)
     with open('eat24_scrape.csv', 'wb') as csvfile:
-        fields = [ 'ID', 'Name', 'Phone Number', 'Address', 'Neighborhood', 'Latitude', 'Longitude', 'Delivery Min', 'Delivery Fee', 'Rating', 'Reviews' ]
+        fields = [ 'ID', 'Name', 'Phone Number', 'Address', 'City', 'Latitude', 'Longitude', 'Delivery Min', 'Delivery Fee', 'Rating', 'Reviews' ]
         wr = csv.writer(csvfile, delimiter=',', quoting=csv.QUOTE_ALL)
         wr.writerow(fields)
         for link in links:
